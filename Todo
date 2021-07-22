@@ -3,4 +3,4 @@ Look at diffs in latest (NG) FameJava and pascalerni:
 - https://github.com/moosetechnology/FameJava/compare/master...pascalerni:master
 
 
-- output to separate files
+- lowercase camelCase for filenames

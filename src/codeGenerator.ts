@@ -15,7 +15,8 @@ initReferences(typeScriptMM, referenceNames);
 const sourceRoot = "./target/famix/model/";
 
 // this is deno style module resolution (ex. `import { MyClass } from "./MyClass.ts"`)
-const project = new Project({
+const project = new Project(
+    /*{
     resolutionHost: (moduleResolutionHost, getCompilerOptions) => {
         return {
             resolveModuleNames: (moduleNames, containingFile) => {
@@ -38,44 +39,41 @@ const project = new Project({
             return moduleName;
         }
     },
-});
+}*/
+);
 
+// ignore the other stuff in the MM
 const famixTSMM = typeScriptMM.filter(entry => entry.name === 'FamixTypeScript');
 
-// const module = sourceFile.addModule({
-//     name: famixTSMM[0].name
-// })
-
 famixTSMM[0].classes.forEach(cls => {
-        let className = cls.name;
-        const sourceFile = project.createSourceFile(`${sourceRoot}${className}.ts`, "", { overwrite: true });
-        const classDeclaration = sourceFile.addClass({
-            name: className,
-            isExported: true
-        });
+    let className = cls.name;
+    const classFileName = typeScriptFileName(className);
+    const sourceFile = project.createSourceFile(`${sourceRoot}${classFileName}.ts`, "", { overwrite: true });
+    const classDeclaration = sourceFile.addClass({
+        name: className,
+        isExported: true
+    });
 
-        if (cls.superclass) {
-            const superclass = referenceNames.get(cls.superclass.ref) as string;
-            classDeclaration.setExtends(superclass);
-            sourceFile.addImportDeclaration(
-                {moduleSpecifier: `./${superclass}`,
+    if (cls.superclass) {
+        const superclass = referenceNames.get(cls.superclass.ref) as string;
+        classDeclaration.setExtends(superclass);
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: "./" + typeScriptFileName(superclass),
                 namedImports: [superclass]
             }
-            //     {
-            //     defaultImport: superclass,
-            //     moduleSpecifier: `${sourceRoot}${superclass}`,
-            // }
-            )
-        }
+        )
+    }
 
-        classDeclaration.addProperty({
-            name: 'myProp',
-            type: 'string',
-            initializer: '\'hello world!\'',
-            scope: Scope.Public
-        });
+    // Bogus for now
+    classDeclaration.addProperty({
+        name: 'myProp',
+        type: 'string',
+        initializer: '\'hello world!\'',
+        scope: Scope.Public
+    });
 
-        sourceFile.formatText();
+    sourceFile.formatText();
 
 })
 
@@ -91,10 +89,15 @@ function convertToTypescriptType(typename: string) {
     return typename;
 }
 
-function initReferences(mm: TypeScriptMM[], nameRefMap : Map<number|RefEnum, string>) {
+// map the IDs to Names
+function initReferences(mm: TypeScriptMM[], nameRefMap: Map<number | RefEnum, string>) {
     for (const entry of mm) {
         for (const cls of entry.classes) {
             nameRefMap.set(cls.id, cls.name)
         }
     }
+}
+
+function typeScriptFileName(s:string) : string {
+    return s.charAt(0).toLowerCase() + s.substring(1);
 }
