@@ -1,0 +1,19 @@
+{
+  "name": "fametypescript",
+  "version": "1.0.0",
+  "description": "Convert JSON of TypeScript Metamodel to an API",
+  "main": "index.js",
+  "scripts": {
+    "update-from-json": "quicktype -t TypeScriptMM TypeScriptMM_fromPharo.json -o TypeScriptMMInterfaces_fromQuicktype.ts",
+    "build": "ts-node src/codeGenerator.ts && mv target/famix/model/*.ts src/famix/model/",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Christopher (Cris)",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^16.4.0"
+  },
+  "dependencies": {
+    "ts-morph": "^11.0.3"
+  }
+}
