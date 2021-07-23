@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { Class, Convert, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
 import { ClassDeclaration, InterfaceDeclaration, NamedImports, Project, Scope, SourceFile, ts } from "ts-morph";
 import { FamixReferences } from './famixReferences'
-import { profile } from 'console';
+import { assert, profile } from 'console';
 
 const metamodelJSON = fs.readFileSync('TypeScriptMM_fromPharo.json', 'utf8');
 
@@ -150,12 +150,18 @@ function convertToTypescriptType(typename: string) {
 }
 
 
-function acceptTrait(sourceFile: SourceFile, className: string, cls: Class, fm3pkg: TypeScriptMM) {
+function acceptTrait(sourceFile: SourceFile, traitName: string, cls: Class, fm3pkg: TypeScriptMM) {
     const interfaceDeclaration = sourceFile.addInterface({
-        name: className,
+        name: traitName,
         isExported: true
     });
 
+    assert (cls.superclass === undefined, `Trait ${traitName} has a superclass defined.`)
     //configureSuperclass(fm3pkg, cls, className, interfaceDeclaration, sourceFile);
-    configureProperties(cls, sourceFile, interfaceDeclaration);
+    configureTraitProperties(cls, sourceFile, interfaceDeclaration);
 }
+
+function configureTraitProperties(cls: Class, sourceFile: SourceFile, interfaceDeclaration: InterfaceDeclaration) {
+    throw new Error('Function not implemented.');
+}
+
