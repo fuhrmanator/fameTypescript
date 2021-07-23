@@ -1,7 +1,8 @@
 import * as fs from 'fs';
-import { Class, Convert, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
-import { Project, Scope, SourceFile, ts } from "ts-morph";
+import { Class, Convert, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
+import { NamedImports, Project, Scope, SourceFile, ts } from "ts-morph";
 import { FamixReferences } from './famixReferences'
+import { profile } from 'console';
 
 const metamodelJSON = fs.readFileSync('TypeScriptMM_fromPharo.json', 'utf8');
 
@@ -48,10 +49,11 @@ const project = new Project(
 
 for (const fm3pkg of typeScriptMM) {
 
-    if ((fm3pkg.name === 'FamixTypeScript') || (fm3pkg.name === 'Famix-Traits')) {
+    if ((fm3pkg.name === 'FamixTypeScript') || (fm3pkg.name === 'Famix-Traits') || (fm3pkg.name === 'Moose')) {
 
         console.log(`Package: ${fm3pkg.name}`);
         for (const cls of fm3pkg.classes) {
+            console.log(` Class: ${cls.name}`)
             let className = cls.name;
             const classFileName = referenceNames.sourcePathForClassRef(cls.id);
             const sourceFile = project.createSourceFile(`${sourceRoot}${classFileName}.ts`, "", { overwrite: true });
@@ -59,34 +61,54 @@ for (const fm3pkg of typeScriptMM) {
                 name: className,
                 isExported: true
             });
-        
+
             if (cls.superclass !== undefined) {
-                const superclass = referenceNames.nameForRef(cls.superclass.ref);
-                const superclassPath = referenceNames.sourcePathForClassRef(cls.superclass.ref)
-                if (superclass !== undefined) {
-                    console.log(`class: ${className}, superclass: ${superclass}, ref: ${cls.superclass.ref}`)
-                    classDeclaration.setExtends(superclass);
-                    sourceFile.addImportDeclaration(
-                        {
-                            moduleSpecifier: `../${superclassPath}`,
-                            namedImports: [superclass]
-                        }
-                    )    
-                } else throw new Error(`superclass ${cls.superclass.ref} undefined (not in references)`)
+                if (fm3pkg.name === 'Moose' && cls.name === 'Object') {
+                    console.log(`skipping superclass for ${JSON.stringify(cls)} because of a reference bug`);
+                }
+                else {
+                    const superclass = referenceNames.nameForRef(cls.superclass.ref);
+                    const superclassPath = referenceNames.sourcePathForClassRef(cls.superclass.ref)
+                    if (superclass !== undefined) {
+                        console.log(`class: ${className}, superclass: ${superclass}, ref: ${cls.superclass.ref}`)
+                        classDeclaration.setExtends(superclass);
+                        sourceFile.addImportDeclaration(
+                            {
+                                moduleSpecifier: `../${superclassPath}`,
+                                namedImports: [superclass]
+                            }
+                        )
+                    } else throw new Error(`superclass ${cls.superclass.ref} undefined (not in references)`)
+                }
             }
-        
+
             // Bogus for now
             if (cls.properties) {
                 for (const prop of cls.properties) {
+                    console.log(`  Property: ${prop.name}, id: ${prop.id}, type.ref: ${prop.type.ref}`)
+                    let typeScriptType;
+                    // special types that are in typescript
+                    if (!RefEnum[prop.type.ref as RefEnum]) {
+                        typeScriptType = referenceNames.nameForRef(prop.type.ref)
+                        sourceFile.addImportDeclaration(
+                            {
+                                moduleSpecifier: `../${referenceNames.sourcePathForClassRef(prop.type.ref)}`,
+                                namedImports: [typeScriptType]
+                            }
+                        )
+                    } else {
+                        typeScriptType = convertToTypescriptType(prop.type.ref as string)
+                    }
+
                     classDeclaration.addProperty({
                         name: `${prop.name}`,
-                        type: `${prop.type}`,
+                        type: `${typeScriptType}`,
                         scope: Scope.Private
                     });
                 }
-        
+
             }
-        
+
             // Bogus for now
             // if (cls.traits) {
             //     for (const trait of cls.traits) {
@@ -95,14 +117,14 @@ for (const fm3pkg of typeScriptMM) {
             //             scope: Scope.Private
             //         });
             //     }
-        
+
             // }
-            
-        
+
+
             sourceFile.formatText();
-        
+
         }
-    
+
     }
 
 }
