@@ -1,18 +1,19 @@
 import * as fs from 'fs';
-import { Convert, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
+import { Class, Convert, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
 import { Project, Scope, SourceFile, ts } from "ts-morph";
+import { FamixReferences } from './famixReferences'
 
 const metamodelJSON = fs.readFileSync('TypeScriptMM_fromPharo.json', 'utf8');
 
 const typeScriptMM: TypeScriptMM[] = Convert.toTypeScriptMM(metamodelJSON);
 
-const referenceNames = new Map<number | RefEnum, string>();
+// const referenceNames = new Map<number | RefEnum, Class>();
 
-initReferences(typeScriptMM, referenceNames);
+const referenceNames = new FamixReferences(typeScriptMM);
 
 // Let's make some classes!
 
-const sourceRoot = "./target/famix/model/";
+const sourceRoot = "./target/famix/";
 
 // this is deno style module resolution (ex. `import { MyClass } from "./MyClass.ts"`)
 const project = new Project(
@@ -43,39 +44,68 @@ const project = new Project(
 );
 
 // ignore the other stuff in the MM
-const famixTSMM = typeScriptMM.filter(entry => entry.name === 'FamixTypeScript');
+// const famixTSMM = typeScriptMM.filter(entry => entry.name === 'FamixTypeScript');
 
-famixTSMM[0].classes.forEach(cls => {
-    let className = cls.name;
-    const classFileName = typeScriptFileName(className);
-    const sourceFile = project.createSourceFile(`${sourceRoot}${classFileName}.ts`, "", { overwrite: true });
-    const classDeclaration = sourceFile.addClass({
-        name: className,
-        isExported: true
-    });
+for (const fm3pkg of typeScriptMM) {
 
-    if (cls.superclass) {
-        const superclass = referenceNames.get(cls.superclass.ref) as string;
-        classDeclaration.setExtends(superclass);
-        sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: "./" + typeScriptFileName(superclass),
-                namedImports: [superclass]
+    if ((fm3pkg.name === 'FamixTypeScript') || (fm3pkg.name === 'Famix-Traits')) {
+
+        console.log(`Package: ${fm3pkg.name}`);
+        for (const cls of fm3pkg.classes) {
+            let className = cls.name;
+            const classFileName = referenceNames.sourcePathForClassRef(cls.id);
+            const sourceFile = project.createSourceFile(`${sourceRoot}${classFileName}.ts`, "", { overwrite: true });
+            const classDeclaration = sourceFile.addClass({
+                name: className,
+                isExported: true
+            });
+        
+            if (cls.superclass !== undefined) {
+                const superclass = referenceNames.nameForRef(cls.superclass.ref);
+                const superclassPath = referenceNames.sourcePathForClassRef(cls.superclass.ref)
+                if (superclass !== undefined) {
+                    console.log(`class: ${className}, superclass: ${superclass}, ref: ${cls.superclass.ref}`)
+                    classDeclaration.setExtends(superclass);
+                    sourceFile.addImportDeclaration(
+                        {
+                            moduleSpecifier: `../${superclassPath}`,
+                            namedImports: [superclass]
+                        }
+                    )    
+                } else throw new Error(`superclass ${cls.superclass.ref} undefined (not in references)`)
             }
-        )
+        
+            // Bogus for now
+            if (cls.properties) {
+                for (const prop of cls.properties) {
+                    classDeclaration.addProperty({
+                        name: `${prop.name}`,
+                        type: `${prop.type}`,
+                        scope: Scope.Private
+                    });
+                }
+        
+            }
+        
+            // Bogus for now
+            // if (cls.traits) {
+            //     for (const trait of cls.traits) {
+            //         classDeclaration.addImplements({
+            //             name: `${referenceNames.get(trait.ref)}`,
+            //             scope: Scope.Private
+            //         });
+            //     }
+        
+            // }
+            
+        
+            sourceFile.formatText();
+        
+        }
+    
     }
 
-    // Bogus for now
-    classDeclaration.addProperty({
-        name: 'myProp',
-        type: 'string',
-        initializer: '\'hello world!\'',
-        scope: Scope.Public
-    });
-
-    sourceFile.formatText();
-
-})
+}
 
 project.saveSync();
 
@@ -90,14 +120,11 @@ function convertToTypescriptType(typename: string) {
 }
 
 // map the IDs to Names
-function initReferences(mm: TypeScriptMM[], nameRefMap: Map<number | RefEnum, string>) {
-    for (const entry of mm) {
-        for (const cls of entry.classes) {
-            nameRefMap.set(cls.id, cls.name)
-        }
-    }
-}
-
-function typeScriptFileName(s:string) : string {
-    return s.charAt(0).toLowerCase() + s.substring(1);
-}
+// function initReferences(mm: TypeScriptMM[], nameRefMap: FamixRefMap) {
+//     for (const entry of mm) {
+//         for (const cls of entry.classes) {
+//             if (nameRefMap.has(cls.id)) throw new Error(`${cls.id} already in reference map as ${JSON.stringify(nameRefMap.get(cls.id))}`)
+//             nameRefMap.set(cls.id, cls)
+//         }
+//     }
+// }
