@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { Class, Convert, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
-import { ClassDeclaration, NamedImports, Project, Scope, SourceFile, ts } from "ts-morph";
+import { ClassDeclaration, InterfaceDeclaration, NamedImports, Project, Scope, SourceFile, ts } from "ts-morph";
 import { FamixReferences } from './famixReferences'
 import { profile } from 'console';
 
@@ -68,8 +68,8 @@ function acceptPackage(fm3pkg: TypeScriptMM) {
         const classFileName = referenceNames.sourcePathForClassRef(cls.id);
         const sourceFile = project.createSourceFile(`${sourceRoot}${classFileName}.ts`, "", { overwrite: true });
         if (cls.FM3 === 'FM3.Trait')
-            //acceptTrait(sourceFile, className, cls, fm3pkg)
-            acceptClass(sourceFile, className, cls, fm3pkg)
+            acceptTrait(sourceFile, className, cls, fm3pkg)
+            //acceptClass(sourceFile, className, cls, fm3pkg)
         else
             acceptClass(sourceFile, className, cls, fm3pkg)
 
@@ -88,7 +88,7 @@ function acceptClass(sourceFile: SourceFile, className: string, cls: Class, fm3p
     configureProperties(cls, sourceFile, classDeclaration);
 }
 
-function configureProperties(cls: Class, sourceFile: SourceFile, classDeclaration: ClassDeclaration) {
+function configureProperties(cls: Class, sourceFile: SourceFile, classDeclaration: ClassDeclaration | InterfaceDeclaration) {
     if (cls.properties) {
         for (const prop of cls.properties) {
             console.log(`  Property: ${prop.name}, id: ${prop.id}, type.ref: ${prop.type.ref}`);
@@ -124,7 +124,7 @@ function configureSuperclass(fm3pkg: TypeScriptMM, cls: Class, className: string
             const superclass = referenceNames.nameForRef(cls.superclass.ref);
             const superclassPath = referenceNames.sourcePathForClassRef(cls.superclass.ref);
             if (superclass !== undefined) {
-                console.log(`class: ${className}, superclass: ${superclass}, ref: ${cls.superclass.ref}`);
+                console.log(`   has superclass : class: ${className}, superclass: ${superclass}, ref: ${cls.superclass.ref}`);
                 classDeclaration.setExtends(superclass);
                 sourceFile.addImportDeclaration(
                     {
@@ -151,6 +151,11 @@ function convertToTypescriptType(typename: string) {
 
 
 function acceptTrait(sourceFile: SourceFile, className: string, cls: Class, fm3pkg: TypeScriptMM) {
-    throw new Error('Function not implemented.');
-}
+    const interfaceDeclaration = sourceFile.addInterface({
+        name: className,
+        isExported: true
+    });
 
+    //configureSuperclass(fm3pkg, cls, className, interfaceDeclaration, sourceFile);
+    configureProperties(cls, sourceFile, interfaceDeclaration);
+}
