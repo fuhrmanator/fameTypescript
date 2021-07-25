@@ -206,6 +206,6 @@ export class Generator {
     }
 
     acceptAccessorPropertyTrait(property: Property) {
-        throw new Error('Function not implemented.');
+        return; // throw new Error('Function not implemented.');
     }
 }
