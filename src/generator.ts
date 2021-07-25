@@ -1,8 +1,7 @@
-import { Class, Property, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
+import { Class, Property, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
 import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } from "ts-morph";
 import { FamixReferences } from './famixReferences'
-import { assert } from 'console';
-
+import assert from 'assert';
 
 export class Generator {
     project: Project
@@ -113,7 +112,7 @@ export class Generator {
         this.configureProperties(cls, sourceFile, classDeclaration);
     }
 
-    configureProperties(cls: Class, sourceFile: SourceFile, classDeclaration: ClassDeclaration | InterfaceDeclaration) {
+    configureProperties(cls: Class, sourceFile: SourceFile, classDeclaration: ClassDeclaration) {
         if (cls.properties) {
             for (const prop of cls.properties) {
                 console.log(`  Property: ${prop.name}, id: ${prop.id}, type.ref: ${prop.type.ref}`);

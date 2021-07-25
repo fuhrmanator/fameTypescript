@@ -4,14 +4,15 @@
   "description": "Convert JSON of TypeScript Metamodel to an API",
   "main": "index.js",
   "scripts": {
-    "update-from-json": "quicktype -t TypeScriptMM TypeScriptMM_fromPharo.json -o TypeScriptMMInterfaces_fromQuicktype.ts",
-    "build": "ts-node src/codeGenerator.ts && npx shx cp -rf target/famix/* src/famix/",
+    "update-from-json": "npx quicktype -t TypeScriptMM resources/TypeScriptMM_fromPharo.json -o src/quicktype/TypeScriptMMInterfaces.ts",
+    "build": "npx ts-node src/codeGenerator.ts && npx shx cp -rf target/famix/* src/famix/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Christopher (Cris)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.4.0",
+    "quicktype": "^15.0.260",
     "shx": "^0.3.3"
   },
   "dependencies": {

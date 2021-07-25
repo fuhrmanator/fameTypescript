@@ -1,4 +1,4 @@
-import { Class, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
+import { Class, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
 
 export class FamixReferences {
     map: Map<number | RefEnum, any>

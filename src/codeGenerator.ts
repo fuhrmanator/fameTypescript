@@ -1,8 +1,8 @@
 import * as fs from 'fs';
-import { Class, Convert, Property, RefEnum, TypeScriptMM } from '../TypeScriptMMInterfaces_fromQuicktype'
+import { Convert, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
 import { Generator } from './generator';
 
-const metamodelJSON = fs.readFileSync('TypeScriptMM_fromPharo.json', 'utf8');
+const metamodelJSON = fs.readFileSync('./resources/TypeScriptMM_fromPharo.json', 'utf8');
 
 const typeScriptMM: TypeScriptMM[] = Convert.toTypeScriptMM(metamodelJSON);
 
