@@ -193,23 +193,25 @@ export class TypeScriptFamixAPIGenerator {
                     returnType: `Array<${fieldType}>`,
                     statements: getterStatements,
                 }
+                setterParamName += 'Array'
                 setterMethodDefinition = {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
                         type: `Array<${typeScriptType}>`
                     }],
-                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName}))`], // deep copy
+                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName})) //deep copy`],
                 }
                 break
             case 'ManyOne':
+                setterParamName += 'Array'
                 setterMethodDefinition = {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
                         type: `Array<${typeScriptType}>`
                     }],
-                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName}))`], // deep copy
+                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName})) // deep copy`],
                 }
                 break
             case 'OneMany':
