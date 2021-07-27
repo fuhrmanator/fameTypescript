@@ -11,9 +11,10 @@
   "author": "Christopher (Cris)",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^16.4.0",
+    "@types/node": "^16.4.3",
     "quicktype": "^15.0.260",
-    "shx": "^0.3.3"
+    "shx": "^0.3.3",
+    "ts-node": "^10.1.0"
   },
   "dependencies": {
     "ts-morph": "^11.0.3"

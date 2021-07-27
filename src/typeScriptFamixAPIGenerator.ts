@@ -3,7 +3,7 @@ import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } fr
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
 
-export class Generator {
+export class TypeScriptFamixAPIGenerator {
     project: Project
     sourceRoot: string
     referenceNames: FamixReferences;
