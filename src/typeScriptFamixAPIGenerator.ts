@@ -1,4 +1,4 @@
-import { Class, Property, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
+import { Class, Package, Property, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
 import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } from "ts-morph";
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
@@ -7,7 +7,7 @@ export class TypeScriptFamixAPIGenerator {
     project: Project
     sourceRoot: string
     referenceNames: FamixReferences;
-    mm : TypeScriptMM[]
+    mm: TypeScriptMM[]
 
     constructor(sourceRoot: string, mm: TypeScriptMM[]) {
         this.sourceRoot = sourceRoot
@@ -44,11 +44,11 @@ export class TypeScriptFamixAPIGenerator {
     generate() {
         for (const fm3pkg of this.mm) {
 
-            if ((fm3pkg.name === 'FamixTypeScript') ||
-                (fm3pkg.name === 'Famix-Traits') ||
-                (fm3pkg.name === 'Moose')) {
-                this.acceptPackage(fm3pkg);
-            }
+            // if ((fm3pkg.name === 'FamixTypeScript') ||
+            //     (fm3pkg.name === 'Famix-Traits') ||
+            //     (fm3pkg.name === 'Moose')) {
+            this.acceptPackage(fm3pkg);
+            // }
 
         }
         this.project.saveSync()
@@ -109,34 +109,162 @@ export class TypeScriptFamixAPIGenerator {
             }
         }
 
-        this.configureProperties(cls, sourceFile, classDeclaration);
-    }
-
-    configureProperties(cls: Class, sourceFile: SourceFile, classDeclaration: ClassDeclaration) {
         if (cls.properties) {
-            for (const prop of cls.properties) {
+            const sortedProperties = cls.properties.sort((p1, p2) => p1.name.localeCompare(p2.name))
+            for (const prop of sortedProperties) {
                 console.log(`  Property: ${prop.name}, id: ${prop.id}, type.ref: ${prop.type.ref}`);
-                let typeScriptType;
-                // special types that are in typescript
-                if (!RefEnum[prop.type.ref as RefEnum]) {
-                    typeScriptType = this.referenceNames.nameForRef(prop.type.ref);
-                    sourceFile.addImportDeclaration(
-                        {
-                            moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`,
-                            namedImports: [typeScriptType]
-                        }
-                    );
-                } else {
-                    typeScriptType = this.convertToTypescriptType(prop.type.ref as string);
-                }
-
-                classDeclaration.addProperty({
-                    name: `${prop.name}`,
-                    type: `${typeScriptType}`,
-                    scope: Scope.Private
-                });
+                this.acceptProperty(prop, classDeclaration, sourceFile)
             }
         }
+    }
+
+    private acceptProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
+        if (prop.derived && !prop.opposite) {
+            return this.acceptDerivedProperty(prop, classDeclaration, sourceFile)
+        } else {
+            return this.acceptAccessorProperty(prop, classDeclaration, sourceFile)
+        }
+    }
+
+    private acceptAccessorProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
+
+        // determine the type 
+        let typeScriptType;
+        // special types that are in typescript
+        if (!refIsType(prop.type.ref)) {
+            typeScriptType = this.referenceNames.nameForRef(prop.type.ref);
+            // Only add import for property if it's not the same as the class
+            if (typeScriptType !== classDeclaration.getName()) this.addImportForProperty(prop, sourceFile);
+        } else {
+            typeScriptType = this.convertToTypescriptType(prop.type.ref as string);
+        }
+
+        const fieldType = `${(prop.multivalued ? 'Array<' : '') + typeScriptType + (prop.multivalued ? '>' : '')}`
+
+        const declaredProperty = classDeclaration.addProperty({
+            name: `_${prop.name}`,
+            type: `${fieldType}`,
+            scope: Scope.Private,
+        });
+        if (prop.multivalued) declaredProperty.setInitializer('[]')
+
+        // getters and setters
+
+        let base = prop.multivalued ? 'Many' : 'One'
+        let needMultivalueSet = false;
+        if (prop.opposite) {
+            base += (this.referenceNames.elementForRef(prop.opposite.ref) as Property).multivalued ? 'Many' : 'One'
+            needMultivalueSet = prop.multivalued
+        }
+
+        let getterStatements = [`return this._${prop.name}`];
+        //        if (prop.multivalued) getterStatements.unshift(`if (!${prop.name}) ${prop.name} = {}`)
+        let getterMethodDefinition = {
+            name: `${prop.name}`,
+            returnType: `${fieldType}`,
+            statements: getterStatements,
+        }
+
+        let setterParamName = `the${firstLetterToUpperCase(typeScriptType)}`
+        let setterMethodDefinition = {
+            name: `${prop.name}`,
+            parameters: [{
+                name: setterParamName,
+                type: `${typeScriptType}`
+            }],
+            statements: [`this._${prop.name} = ${setterParamName}`],
+        }
+
+        if (prop.opposite) {
+            let oppositeName = this.referenceNames.nameForRef(prop.opposite.ref)
+            const oppositeSetter = `${firstLetterToUpperCase(oppositeName)}`
+            const oppositeGetter = `${firstLetterToUpperCase(oppositeName)}`
+        }
+
+        console.log(`      accessorProperty: ${prop.name}, isMultivalued: ${prop.multivalued}, base: ${base}`)
+        // see https://github.com/moosetechnology/FameJava/blob/master/src/ch/akuhn/fame/codegen/template.txt for logic
+        switch (base) {
+            case 'One':
+                // already initialized above
+                break
+            case 'Many':
+                getterMethodDefinition = {
+                    name: `${prop.name}`,
+                    returnType: `Array<${fieldType}>`,
+                    statements: getterStatements,
+                }
+                setterMethodDefinition = {
+                    name: `${prop.name}`,
+                    parameters: [{
+                        name: setterParamName,
+                        type: `Array<${typeScriptType}>`
+                    }],
+                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName}))`], // deep copy
+                }
+                break
+            case 'ManyOne':
+                setterMethodDefinition = {
+                    name: `${prop.name}`,
+                    parameters: [{
+                        name: setterParamName,
+                        type: `Array<${typeScriptType}>`
+                    }],
+                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName}))`], // deep copy
+                }
+                break
+            case 'OneMany':
+                break
+            case 'OneOne':
+                break
+            case 'ManyMany':
+                break
+            default:
+                throw new Error(`invalid value for ${base} (switch)`)
+        }
+
+        classDeclaration.addGetAccessor(getterMethodDefinition)
+        classDeclaration.addSetAccessor(setterMethodDefinition)
+
+        // adder for multivalue
+
+        if (prop.multivalued) {
+            const paramName = `the${firstLetterToUpperCase(typeScriptType)}`
+            classDeclaration.addMethod({
+                name: `add${firstLetterToUpperCase(prop.name)}`,  // todo (maybe), remove the 's' if the property has plural, e.g. scope instead of scopes
+                parameters: [{
+                    name: paramName,
+                    type: `${typeScriptType}`
+                }
+                ],
+                // returnType: `${fieldType}`,
+                statements: [`this._${prop.name}.push(${paramName})`],
+            })
+        }
+
+
+    }
+
+    private acceptDerivedProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
+        //throw new Error('Method not implemented.');
+    }
+
+
+    private addImportForProperty(prop: Property, sourceFile: SourceFile) {
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`,
+                namedImports: [this.referenceNames.nameForRef(prop.type.ref)]
+            }
+        );
+    }
+
+    private addImportForTrait(trait: Package, sourceFile: SourceFile) {
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`,
+                namedImports: [this.referenceNames.nameForRef(trait.ref)]
+            }
+        );
     }
 
     acceptTrait(cls: Class, sourceFile: SourceFile) {
@@ -145,8 +273,13 @@ export class TypeScriptFamixAPIGenerator {
             isExported: true
         });
 
+        if (cls.traits) for (const trait of cls.traits) {
+            console.log(`      acceptTrait: adding trait import for ${this.referenceNames.nameForRef(trait.ref)}`)
+            this.addImportForTrait(trait, sourceFile)
+        }
+
         assert(cls.superclass === undefined, `Trait ${cls.name} has a superclass defined.`)
-        //configureSuperclass(fm3pkg, cls, className, interfaceDeclaration,this.sourceFile);
+
         if (cls.properties) for (const property of cls.properties) {
             this.acceptPropertyTrait(cls, sourceFile, interfaceDeclaration, property);
         }
@@ -164,47 +297,64 @@ export class TypeScriptFamixAPIGenerator {
 
     acceptPropertyTrait(cls: Class, sourceFile: SourceFile, interfaceDeclaration: InterfaceDeclaration, property: Property) {
         if (property.derived && !property.opposite)
-            return this.acceptDerivedPropertyTrait(property)
+            return this.acceptDerivedPropertyTrait(property, interfaceDeclaration, sourceFile)
         else
-            return this.acceptAccessorPropertyTrait(property)
+            return this.acceptAccessorPropertyTrait(property, sourceFile)
     }
 
-    acceptDerivedPropertyTrait(property: Property) {
+    acceptDerivedPropertyTrait(property: Property, interfaceDeclaration: InterfaceDeclaration, sourceFile: SourceFile) {
         assert(property.derived && !property.opposite)
-        /*
-            code.addImport(FameProperty.class);
-            String typeName = "Object";
-            if (m.getType() != null) { // TODO should not have null type
-                typeName = className(m.getType());
-                code.addImport(this.packageName(m.getType().getPackage()), typeName);
-            }
-            if (m.isMultivalued()) {
-                code.addImport("java.util", "*");
-            }
-            String myName = CodeGeneration.asJavaSafeName(m.getName());
-    
-            String base = "Trait." + (m.isMultivalued() ? "Many" : "One");
-            Template getter = Template.get(base + ".Derived.Getter");
-    
-            getter.set("TYPE", typeName);
-            getter.set("NAME", m.getName());
-            getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
-    
-            String props = "";
-            if (m.isDerived()) {
-                props += ", derived = true";
-            }
-            if (m.isContainer()) {
-                props += ", container = true";
-            }
-            getter.set("PROPS", props);
-    
-            StringBuilder stream = code.getContentStream();
-            stream.append(getter.apply());
-            return null;    */
+
+        // this has spooky Object stuff in it, need to ask team @Lille
+
+        // code.addImport(FameProperty.class);
+        // String typeName = "Object";
+        // if (m.getType() != null) { // TODO should not have null type
+        //     typeName = className(m.getType());
+        //     code.addImport(this.packageName(m.getType().getPackage()), typeName);
+        // }
+        if (!refIsType(property.type.ref)) {
+            this.addImportForProperty(property, sourceFile)
+        }
+        // if (m.isMultivalued()) {
+        //     code.addImport("java.util", "*");
+        // }
+        // String myName = CodeGeneration.asJavaSafeName(m.getName());
+
+        // String base = "Trait." + (m.isMultivalued() ? "Many" : "One");
+        // Template getter = Template.get(base + ".Derived.Getter");
+
+        // getter.set("TYPE", typeName);
+        // getter.set("NAME", m.getName());
+        // getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        let typeName = refIsType(property.type.ref) ? (property.type.ref as string).toLowerCase() : this.referenceNames.nameForRef(property.type.ref);
+        if (property.multivalued) { console.log('         multivalued property'); typeName += '[]' }
+        interfaceDeclaration.addMethod({ name: `get${firstLetterToUpperCase(property.name)}`, returnType: typeName })
+
+        // String props = "";
+        // if (m.isDerived()) {
+        //     props += ", derived = true";
+        // }
+        // if (m.isContainer()) {
+        //     props += ", container = true";
+        // }
+        // getter.set("PROPS", props);
+
+        // StringBuilder stream = code.getContentStream();
+        // stream.append(getter.apply());
+        // return null;
     }
 
-    acceptAccessorPropertyTrait(property: Property) {
+    acceptAccessorPropertyTrait(property: Property, sourceFile: SourceFile) {
         return; // throw new Error('Function not implemented.');
     }
 }
+
+function firstLetterToUpperCase(name: string) {
+    return name[0].toLocaleUpperCase() + name.substr(1);
+}
+
+function refIsType(ref: number | RefEnum) {
+    return RefEnum[ref as RefEnum];
+}
+

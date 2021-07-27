@@ -10,8 +10,18 @@ export class FamixReferences {
             for (const cls of entry.classes) {
                 if (this.map.has(cls.id)) throw new Error(`${cls.id} already in reference map as ${JSON.stringify(this.map.get(cls.id))}`)
                 this.map.set(cls.id, cls)
+                if (cls.properties) for (const prop of cls.properties) {
+                    if (this.map.has(prop.id)) throw new Error(`${prop.id} already in reference map as ${JSON.stringify(this.map.get(prop.id))}`)
+                    this.map.set(prop.id, prop)
+                }
             }
         }    
+    }
+    elementForRef(ref: number | RefEnum) : any {
+        if (this.map.has(ref)) {
+            return this.map.get(ref)
+        }
+        else throw new Error(`${ref} not found in reference map.`)
     }
     nameForRef(ref: number | RefEnum) : string {
         if (this.map.has(ref)) {
