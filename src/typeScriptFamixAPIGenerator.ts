@@ -141,7 +141,7 @@ export class TypeScriptFamixAPIGenerator {
             typeScriptType = this.convertToTypescriptType(prop.type.ref as string);
         }
 
-        const fieldType = `${(prop.multivalued ? 'Array<' : '') + typeScriptType + (prop.multivalued ? '>' : '')}`
+        const fieldType = `${(prop.multivalued ? 'Set<' : '') + typeScriptType + (prop.multivalued ? '>' : '')}`
 
         const declaredProperty = classDeclaration.addProperty({
             name: `_${prop.name}`,
@@ -196,7 +196,7 @@ export class TypeScriptFamixAPIGenerator {
             case 'Many':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
-                    returnType: `Array<${fieldType}>`,
+                    returnType: `${fieldType}`,
                     statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Array'
@@ -204,7 +204,7 @@ export class TypeScriptFamixAPIGenerator {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
-                        type: `Array<${typeScriptType}>`
+                        type: `Set<${typeScriptType}>`
                     }],
                     statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName})) //deep copy`],
                 }
@@ -212,7 +212,7 @@ export class TypeScriptFamixAPIGenerator {
             case 'ManyOne':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
-                    returnType: `Array<${fieldType}>`,
+                    returnType: `${fieldType}`,
                     statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Array'
@@ -220,7 +220,7 @@ export class TypeScriptFamixAPIGenerator {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
-                        type: `Array<${typeScriptType}>`
+                        type: `Set<${typeScriptType}>`
                     }],
                     statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName})) // deep copy`],
                 }
@@ -250,7 +250,7 @@ export class TypeScriptFamixAPIGenerator {
                 }
                 ],
                 // returnType: `${fieldType}`,
-                statements: [`this._${prop.name}.push(${paramName})`],
+                statements: [`this._${prop.name}.add(${paramName})`],
             })
         }
 
