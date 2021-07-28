@@ -3,6 +3,8 @@ import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } fr
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
 
+type RefType =  number | RefEnum
+
 export class TypeScriptFamixAPIGenerator {
     project: Project
     sourceRoot: string
@@ -157,12 +159,13 @@ export class TypeScriptFamixAPIGenerator {
             needMultivalueSet = prop.multivalued
         }
 
-        let getterStatements = [`return this._${prop.name}`];
-        //        if (prop.multivalued) getterStatements.unshift(`if (!${prop.name}) ${prop.name} = {}`)
+
+        // initialize them for base === "One" case
+
         let getterMethodDefinition = {
             name: `${prop.name}`,
             returnType: `${fieldType}`,
-            statements: getterStatements,
+            statements: [`return this._${prop.name}`],
         }
 
         let setterParamName = `the${firstLetterToUpperCase(typeScriptType)}`
@@ -175,23 +178,26 @@ export class TypeScriptFamixAPIGenerator {
             statements: [`this._${prop.name} = ${setterParamName}`],
         }
 
+        let oppositeSetter = ''
+        let oppositeGetter = ''
+
         if (prop.opposite) {
             let oppositeName = this.referenceNames.nameForRef(prop.opposite.ref)
-            const oppositeSetter = `${firstLetterToUpperCase(oppositeName)}`
-            const oppositeGetter = `${firstLetterToUpperCase(oppositeName)}`
+            oppositeSetter = `${firstLetterToUpperCase(oppositeName)}`
+            oppositeGetter = `${firstLetterToUpperCase(oppositeName)}`
         }
 
         console.log(`      accessorProperty: ${prop.name}, isMultivalued: ${prop.multivalued}, base: ${base}`)
         // see https://github.com/moosetechnology/FameJava/blob/master/src/ch/akuhn/fame/codegen/template.txt for logic
         switch (base) {
             case 'One':
-                // already initialized above
+                // getter/setter already initialized above
                 break
             case 'Many':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
                     returnType: `Array<${fieldType}>`,
-                    statements: getterStatements,
+                    statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Array'
                 setterMethodDefinition = {
@@ -204,6 +210,11 @@ export class TypeScriptFamixAPIGenerator {
                 }
                 break
             case 'ManyOne':
+                getterMethodDefinition = {
+                    name: `${prop.name}`,
+                    returnType: `Array<${fieldType}>`,
+                    statements: [`return this._${prop.name}`],
+                }
                 setterParamName += 'Array'
                 setterMethodDefinition = {
                     name: `${prop.name}`,
@@ -356,7 +367,7 @@ function firstLetterToUpperCase(name: string) {
     return name[0].toLocaleUpperCase() + name.substr(1);
 }
 
-function refIsType(ref: number | RefEnum) {
+function refIsType(ref: RefType) {
     return RefEnum[ref as RefEnum];
 }
 
