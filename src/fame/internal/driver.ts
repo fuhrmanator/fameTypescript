@@ -28,3 +28,18 @@ incomingAccesses.delete(entity)
 for (const entry of incomingAccesses) {
     console.log(entry)
 }
+
+console.log('values()')
+for (const a of incomingAccesses.values() ){
+    console.log(a)
+}
+
+console.log('keys()')
+for (const a of incomingAccesses.keys() ){
+    console.log(a)
+}
+
+console.log('entries()')
+for (const a of incomingAccesses.entries() ){
+    console.log(a)
+}
