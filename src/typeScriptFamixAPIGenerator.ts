@@ -3,7 +3,7 @@ import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } fr
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
 
-type RefType =  number | RefEnum
+type RefType = number | RefEnum
 
 export class TypeScriptFamixAPIGenerator {
     project: Project
@@ -145,18 +145,48 @@ export class TypeScriptFamixAPIGenerator {
 
         const declaredProperty = classDeclaration.addProperty({
             name: `_${prop.name}`,
-            type: `${fieldType}`,
+            type: `${fieldType} ${!prop.multivalued ? ' | null' : ''}`,
             scope: Scope.Private,
+            initializer: 'null'
         });
-        if (prop.multivalued) declaredProperty.setInitializer('[]')
+
+        let oppositeSetter = ''
+        let oppositeGetter = ''
+
+        if (prop.opposite) {
+            let oppositeName = this.referenceNames.nameForRef(prop.opposite.ref)
+            oppositeSetter = `${oppositeName}`
+            oppositeGetter = `${oppositeName}`
+        }
+
+        const noConflictTypeName = typeScriptType // todo make this like the "asJavaSafeName()" in JavaFame
+
+        if (prop.multivalued) {
+            sourceFile.addImportDeclaration(
+                { moduleSpecifier: `../../fame/internal/setWithOpposite`,
+                  namedImports: [`SetWithOpposite`]}
+            )
+            // override initializer
+            declaredProperty.setInitializer(
+                `new class extends SetWithOpposite<${typeScriptType}> {\n` +
+                `  constructor(private outerThis: ${typeScriptType}) { super() }\n` +
+                `  clearOpposite(value: ${typeScriptType}): this {\n` +
+                `    value.${oppositeSetter} = null\n` +
+                `    return this\n` +
+                `  }\n` +
+                `  setOpposite(value: ${typeScriptType}): this {\n` +
+                `    value.${oppositeSetter} = this.outerThis\n` +
+                `    return this\n` +
+                `  }\n` +
+                `}(this)`
+            )
+        }
 
         // getters and setters
 
         let base = prop.multivalued ? 'Many' : 'One'
-        let needMultivalueSet = false;
         if (prop.opposite) {
             base += (this.referenceNames.elementForRef(prop.opposite.ref) as Property).multivalued ? 'Many' : 'One'
-            needMultivalueSet = prop.multivalued
         }
 
 
@@ -164,7 +194,7 @@ export class TypeScriptFamixAPIGenerator {
 
         let getterMethodDefinition = {
             name: `${prop.name}`,
-            returnType: `${fieldType}`,
+            returnType: `${fieldType} | null`,
             statements: [`return this._${prop.name}`],
         }
 
@@ -173,18 +203,9 @@ export class TypeScriptFamixAPIGenerator {
             name: `${prop.name}`,
             parameters: [{
                 name: setterParamName,
-                type: `${typeScriptType}`
+                type: `${typeScriptType} | null`
             }],
             statements: [`this._${prop.name} = ${setterParamName}`],
-        }
-
-        let oppositeSetter = ''
-        let oppositeGetter = ''
-
-        if (prop.opposite) {
-            let oppositeName = this.referenceNames.nameForRef(prop.opposite.ref)
-            oppositeSetter = `${firstLetterToUpperCase(oppositeName)}`
-            oppositeGetter = `${firstLetterToUpperCase(oppositeName)}`
         }
 
         console.log(`      accessorProperty: ${prop.name}, isMultivalued: ${prop.multivalued}, base: ${base}`)
