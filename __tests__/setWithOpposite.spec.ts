@@ -6,12 +6,10 @@ let opposite = new String('')
 beforeAll(() => {
   testSet = new class extends SetWithOpposite<String> {
     setOpposite(value: String): this {
-      console.log(`clearOpposite: ${value}`)
       opposite = value
       return this
     }
     clearOpposite(value: String): this {
-      console.log(`clearOpposite: ${value}`)
       opposite = new String('')
       return this
     }
@@ -90,12 +88,10 @@ describe("SetWithOpposite", () => {
   it('should have size of 2 with constructor with array of 2', () => {
     testSet = new class extends SetWithOpposite<String> {
       setOpposite(value: String): this {
-        console.log(`clearOpposite: ${value}`)
         opposite = value
         return this
       }
       clearOpposite(value: String): this {
-        console.log(`clearOpposite: ${value}`)
         opposite = new String('')
         return this
       }
@@ -152,7 +148,6 @@ describe("SetWithOpposite", () => {
       expect(testSet.has(e)).toBeTruthy
     }
   })
-
 
 });
 
