@@ -129,7 +129,7 @@ export class TypeScriptFamixAPIGenerator {
     }
 
     private acceptAccessorProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
-
+        let className = this.referenceNames.nameForRef(prop.class.ref)
         // determine the type 
         let typeScriptType;
         // special types that are in typescript
@@ -161,6 +161,11 @@ export class TypeScriptFamixAPIGenerator {
 
         const noConflictTypeName = typeScriptType // todo make this like the "asJavaSafeName()" in JavaFame
 
+        let base = prop.multivalued ? 'Many' : 'One'
+        if (prop.opposite) {
+            base += (this.referenceNames.elementForRef(prop.opposite.ref) as Property).multivalued ? 'Many' : 'One'
+        }
+
         if (prop.multivalued) {
             sourceFile.addImportDeclaration(
                 {
@@ -171,13 +176,13 @@ export class TypeScriptFamixAPIGenerator {
             // override initializer
             declaredProperty.setInitializer(
                 `new class extends SetWithOpposite<${typeScriptType}> {\n` +
-                `  constructor(private outerThis: ${typeScriptType}) { super() }\n` +
+                `  constructor(private outerThis: ${className}) { super() }\n` +
                 `  clearOpposite(value: ${typeScriptType}): this {\n` +
-                `    value.${oppositeSetter} = null\n` +
+                (base === 'ManyMany'? `    value.${oppositeGetter}.delete(this.outerThis)\n`:`    value.${oppositeSetter} = null\n`) +
                 `    return this\n` +
                 `  }\n` +
                 `  setOpposite(value: ${typeScriptType}): this {\n` +
-                `    value.${oppositeSetter} = this.outerThis\n` +
+                (base === 'ManyMany'? `    value.${oppositeGetter}.add(this.outerThis)\n`:`    value.${oppositeSetter} = this.outerThis\n`) +
                 `    return this\n` +
                 `  }\n` +
                 `}(this) /* pass outer this */`
@@ -185,12 +190,6 @@ export class TypeScriptFamixAPIGenerator {
         }
 
         // getters and setters
-
-        let base = prop.multivalued ? 'Many' : 'One'
-        if (prop.opposite) {
-            base += (this.referenceNames.elementForRef(prop.opposite.ref) as Property).multivalued ? 'Many' : 'One'
-        }
-
 
         // initialize them for base === "One" case
 
@@ -311,6 +310,15 @@ export class TypeScriptFamixAPIGenerator {
                     name: `${prop.name}`,
                     returnType: `${fieldType}`,
                     statements: [`return this._${prop.name}`],
+                }
+                setterParamName += 'Set'
+                setterMethodDefinition = {
+                    name: `${prop.name}`,
+                    parameters: [{
+                        name: setterParamName,
+                        type: `Set<${typeScriptType}>`
+                    }],
+                    statements: [`this._${prop.name} = JSON.parse(JSON.stringify(${setterParamName})) // deep copy`],
                 }
                 break
             default:
