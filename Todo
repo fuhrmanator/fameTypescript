@@ -2,4 +2,6 @@ Look at diffs in latest (NG) FameJava and pascalerni:
 
 - https://github.com/moosetechnology/FameJava/compare/master...pascalerni:master
 
+- Many.Setter uses Collection<? extends --TYPE-->, but I think it will just work with Set<--TYPE--> in TypeScript (but not sure!)
+
 - Trait properties have to be accessors. Look at https://github.com/moosetechnology/FameJava/blob/master/src/ch/akuhn/fame/codegen/CodeGeneration.java to see how it's handled in the `acceptTrait` method

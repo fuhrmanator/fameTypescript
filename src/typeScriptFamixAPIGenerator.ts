@@ -222,7 +222,7 @@ export class TypeScriptFamixAPIGenerator {
                     returnType: `${fieldType}`,
                     statements: [`return this._${prop.name}`],
                 }
-                setterParamName += 'Array'
+                setterParamName += 'Set'
                 setterMethodDefinition = {
                     name: `${prop.name}`,
                     parameters: [{
@@ -238,7 +238,7 @@ export class TypeScriptFamixAPIGenerator {
                     returnType: `${fieldType}`,
                     statements: [`return this._${prop.name}`],
                 }
-                setterParamName += 'Array'
+                setterParamName += 'Set'
                 setterMethodDefinition = {
                     name: `${prop.name}`,
                     parameters: [{
@@ -249,10 +249,43 @@ export class TypeScriptFamixAPIGenerator {
                 }
                 break
             case 'OneMany':
+                // getter same as 'One' (defined above)
+                // setter
+                console.log('OneMany property!')
+                setterMethodDefinition = {
+                    name: `${prop.name}`,
+                    parameters: [{
+                        name: setterParamName,
+                        type: `${typeScriptType} | null`
+                    }],
+                    statements: [
+                        `if (this._${prop.name} !== null) {`,
+                        `   if (this._${prop.name} === ${setterParamName}) return;`,
+                        `   this._${prop.name}.${oppositeGetter}.delete(this)`,
+                        `}`,
+                        `this._${prop.name} = ${setterParamName}`,
+                        `if (${setterParamName} == null) return`,
+                        `${setterParamName}.${oppositeGetter}.add(this)`,
+                    ],
+                }
+                // public void --SETTER--(--TYPE-- --FIELD--) {
+                //     if (this.--FIELD-- != null) {
+                //         if (this.--FIELD--.equals(--FIELD--)) return;
+                //         this.--FIELD--.--OPPOSITEGETTER--().remove(this);
+                //     }
+                //     this.--FIELD-- = --FIELD--;
+                //     if (--FIELD-- == null) return;
+                //     --FIELD--.--OPPOSITEGETTER--().add(this);
+                // }
                 break
             case 'OneOne':
                 break
             case 'ManyMany':
+                getterMethodDefinition = {
+                    name: `${prop.name}`,
+                    returnType: `${fieldType}`,
+                    statements: [`return this._${prop.name}`],
+                }
                 break
             default:
                 throw new Error(`invalid value for ${base} (switch)`)
