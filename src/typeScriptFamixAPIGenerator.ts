@@ -251,7 +251,6 @@ export class TypeScriptFamixAPIGenerator {
             case 'OneMany':
                 // getter same as 'One' (defined above)
                 // setter
-                console.log('OneMany property!')
                 setterMethodDefinition = {
                     name: `${prop.name}`,
                     parameters: [{
@@ -279,7 +278,34 @@ export class TypeScriptFamixAPIGenerator {
                 // }
                 break
             case 'OneOne':
-                break
+                // TODO: Not tested yet!
+                console.log('OneOne property!')
+                // getter is same as One
+                // setter
+                setterMethodDefinition = {
+                    name: `${prop.name}`,
+                    parameters: [{
+                        name: setterParamName,
+                        type: `${typeScriptType} | null`
+                    }],
+                    statements: [
+                        `if (this._${prop.name} == null ? ${setterParamName} !== null : !this._${prop.name} === ${setterParamName}) {`,
+                        `  const old_${prop.name} = this._${prop.name}`,
+                        `  this._${prop.name} = ${setterParamName}`,
+                        `  if (old_${prop.name} !== null) old_${prop.name}.${oppositeSetter} = null`,
+                        `  if (${setterParamName} !== null) ${setterParamName}.${oppositeSetter} = this`,
+                        `}`
+                    ],
+                }
+                // public void --SETTER--(--TYPE-- --FIELD--) {
+                //     if (this.--FIELD-- == null ? --FIELD-- != null : !this.--FIELD--.equals(--FIELD--)) {
+                //         --TYPE-- old_--FIELD-- = this.--FIELD--;
+                //         this.--FIELD-- = --FIELD--;
+                //         if (old_--FIELD-- != null) old_--FIELD--.--OPPOSITESETTER--(null);
+                //         if (--FIELD-- != null) --FIELD--.--OPPOSITESETTER--(this);
+                //     }
+                // }
+                    break
             case 'ManyMany':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
