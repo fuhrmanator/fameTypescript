@@ -6,7 +6,7 @@
   "scripts": {
     "update-from-json": "npx quicktype -t TypeScriptMM resources/TypeScriptMM_fromPharo.json -o src/quicktype/TypeScriptMMInterfaces.ts",
     "build": "npx ts-node src/codeGenerator.ts && npx shx cp -rf target/famix/* src/famix/",
-    "test": "jest"
+    "test": "jest --colors"
   },
   "author": "Christopher (Cris)",
   "license": "MIT",

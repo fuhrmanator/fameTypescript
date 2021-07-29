@@ -19,9 +19,9 @@ export abstract class SetWithOpposite<T> implements Set<T> {
 			return;
 		}
 
-		if (!Array.isArray(iterable)) {
-			throw new Error("Non-array iterables are not supported by the SetWithOpposite constructor.");
-		}
+		// if (!Array.isArray(iterable)) {
+		// 	throw new Error("Non-array iterables are not supported by the SetWithOpposite constructor.");
+		// }
 
 		for (const value of iterable) {
 			this.add(value);
@@ -29,7 +29,11 @@ export abstract class SetWithOpposite<T> implements Set<T> {
 	}
 
     clear(): void {
-        this._values.clear()
+        // this._values.clear()
+        for(const e of this._values) {
+            console.log(` >>>> deleting ${e}`)
+            this.delete(e)
+        }
     }
 
     delete(value: T): boolean {
