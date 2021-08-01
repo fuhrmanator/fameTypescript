@@ -1,9 +1,9 @@
 import * as Famix from "../../target/famix/model/famix";
 import * as File from "../../target/famix/model/file";
-import {FamixBaseElement} from "./famix_base_element";
-import {FamixMseExporter} from "./famix_mse_exporter";
-import {FamixRepository} from "./famix_repository";
+import {FamixBaseElement} from "./famixBaseElement";
+import {FamixMSEExporter} from "./famixMSEExporter";
+import {FamixRepository} from "./famixRepository";
 
 const model = {Famix, File };
 
-export = {FamixBaseElement, FamixMseExporter, FamixRepository, model};
+export = {FamixBaseElement, FamixMSEExporter: FamixMSEExporter, FamixRepository, model};

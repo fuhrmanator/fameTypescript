@@ -68,36 +68,61 @@ export class TypeScriptFamixAPIGenerator {
             else
                 this.acceptClass(cls, sourceFile)
 
+            // add MSE conversion method
+
+            // public getMSE(): string {
+            //     const mse: FamixMseExporter = new FamixMseExporter("--THISPACKAGE--.--THISNAME--", this);
+            //     this.addPropertiesToExporter(mse);
+            //     return mse.getMSE();
+            //   }
+
+            //   public addPropertiesToExporter(exporter: FamixMseExporter) {
+            //     super.addPropertiesToExporter(exporter);
+            // --PROPERTIES--
+            //   }
+
+            // }            
+
             sourceFile.insertStatements(0, ['// This code automagically generated from a metamodel using ts-morph'])
             sourceFile.formatText()
         }
     }
 
     acceptClass(cls: Class, sourceFile: SourceFile) {
+        const packageName = this.referenceNames.nameForRef(cls.package.ref)
         const classDeclaration = sourceFile.addClass({
             name: cls.name,
             isExported: true
         });
 
-        // imports for traits
+        // imports and implements for traits
         if (cls.traits) for (const trait of cls.traits) {
+            const traitPath = this.referenceNames.sourcePathForClassRef(trait.ref)
+            const traitName = this.referenceNames.nameForRef(trait.ref)
             sourceFile.addImportDeclaration(
                 {
-                    moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`,
-                    namedImports: [this.referenceNames.nameForRef(trait.ref)]
+                    moduleSpecifier: `../${traitPath}`,
+                    namedImports: [traitName]
                 }
-            );
+            )
+            classDeclaration.addImplements(traitName)
         }
 
         // superclass
         if (cls.superclass !== undefined) {
-            if (this.referenceNames.nameForRef(cls.package.ref) === 'Moose' && cls.name === 'Object') {
-                console.log(`skipping superclass for ${JSON.stringify(cls)} because of a reference bug`);
-            }
-            else {
-                const superclass = this.referenceNames.nameForRef(cls.superclass.ref);
-                const superclassPath = this.referenceNames.sourcePathForClassRef(cls.superclass.ref);
+            // JavaFile.java hacks the superclass in case of "Object"
+            if (packageName === 'Moose' && cls.name === 'Object') {
+                console.log(`Hmmm.... skipping superclass for ${JSON.stringify(cls)}`);
+            } else {
+                let superclass = this.referenceNames.nameForRef(cls.superclass.ref)
+                let superclassPath = this.referenceNames.sourcePathForClassRef(cls.superclass.ref);
                 if (superclass !== undefined) {
+                    // logic from JavaFile.java addSuperclass
+                    if (cls.name === 'Entity' && superclass === 'Entity') {
+                        console.log(`Fixing superclass of Entity to FamixBaseElement!`)
+                        superclass = 'FamixBaseElement'
+                        superclassPath = firstLetterToLowerCase(superclass)
+                    }
                     console.log(`   setting superclass for class: ${cls.name} to superclass: ${superclass}, ref: ${cls.superclass.ref}`);
                     classDeclaration.setExtends(superclass);
                     sourceFile.addImportDeclaration(
@@ -118,6 +143,53 @@ export class TypeScriptFamixAPIGenerator {
                 this.acceptProperty(prop, classDeclaration, sourceFile)
             }
         }
+
+        // MSE conversion -- probably not going to work with Traits, as properties are now traits?
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: `../famixMSEExporter`,
+                namedImports: [`FamixMSEExporter`]
+            }
+        )
+        classDeclaration.addMethod({
+            name: 'getMSE', statements: [
+                `const mse: FamixMSEExporter = new FamixMSEExporter("${packageName}.${cls.name}", this)`,
+                `this.addPropertiesToExporter(mse)`,
+                `return mse.getMSE()`
+            ]
+        })
+        // public getMSE(): string {
+        //     const mse: FamixMseExporter = new FamixMseExporter("--THISPACKAGE--.--THISNAME--", this);
+        //     this.addPropertiesToExporter(mse);
+        //     return mse.getMSE();
+        //   }
+
+        // TODO figure this out -- getting it from JavaFile.java
+        const addPropertyStatements = new Array<string>()
+        if (cls.properties) for (const p of cls.properties) {
+            addPropertyStatements.push(`exporter.addProperty("${p.name}", this.${p.name})`)
+        }
+
+        classDeclaration.addMethod({ name: 'addPropertiesToExporter', parameters: [{ name: 'exporter', type: 'FamixMSEExporter' }], statements: addPropertyStatements })
+
+        // --PROPERTIES--  
+        // should look like:
+        // exporter.addProperty("accessor", this.getAccessor());
+        // exporter.addProperty("variable", this.getVariable());
+        // exporter.addProperty("isWrite", this.getIsWrite());
+        // from JavaFile.java:
+        // for ( Entry<String, String> each: properties.entrySet()) {
+        //     stream.append("    exporter.addProperty(\""+each.getKey()+"\", this."+each.getValue()+"());\n");
+        // }
+
+        //   public addPropertiesToExporter(exporter: FamixMseExporter) {
+        //     super.addPropertiesToExporter(exporter);
+        // --PROPERTIES--
+        //   }
+
+        // }        
+
+        return classDeclaration
     }
 
     private acceptProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
@@ -167,22 +239,17 @@ export class TypeScriptFamixAPIGenerator {
         }
 
         if (prop.multivalued) {
-            sourceFile.addImportDeclaration(
-                {
-                    moduleSpecifier: `../../fame/internal/setWithOpposite`,
-                    namedImports: [`SetWithOpposite`]
-                }
-            )
+            addImportForOppositeSupport(sourceFile);
             // override initializer
             declaredProperty.setInitializer(
                 `new class extends SetWithOpposite<${typeScriptType}> {\n` +
                 `  constructor(private outerThis: ${className}) { super() }\n` +
                 `  clearOpposite(value: ${typeScriptType}): this {\n` +
-                (base === 'ManyMany'? `    value.${oppositeGetter}.delete(this.outerThis)\n`:`    value.${oppositeSetter} = null\n`) +
+                (base === 'ManyMany' ? `    value.${oppositeGetter}.delete(this.outerThis)\n` : `    value.${oppositeSetter} = null\n`) +
                 `    return this\n` +
                 `  }\n` +
                 `  setOpposite(value: ${typeScriptType}): this {\n` +
-                (base === 'ManyMany'? `    value.${oppositeGetter}.add(this.outerThis)\n`:`    value.${oppositeSetter} = this.outerThis\n`) +
+                (base === 'ManyMany' ? `    value.${oppositeGetter}.add(this.outerThis)\n` : `    value.${oppositeSetter} = this.outerThis\n`) +
                 `    return this\n` +
                 `  }\n` +
                 `}(this) /* pass outer this */`
@@ -266,15 +333,6 @@ export class TypeScriptFamixAPIGenerator {
                         `${setterParamName}.${oppositeGetter}.add(this)`,
                     ],
                 }
-                // public void --SETTER--(--TYPE-- --FIELD--) {
-                //     if (this.--FIELD-- != null) {
-                //         if (this.--FIELD--.equals(--FIELD--)) return;
-                //         this.--FIELD--.--OPPOSITEGETTER--().remove(this);
-                //     }
-                //     this.--FIELD-- = --FIELD--;
-                //     if (--FIELD-- == null) return;
-                //     --FIELD--.--OPPOSITEGETTER--().add(this);
-                // }
                 break
             case 'OneOne':
                 // TODO: Not tested yet!
@@ -296,15 +354,7 @@ export class TypeScriptFamixAPIGenerator {
                         `}`
                     ],
                 }
-                // public void --SETTER--(--TYPE-- --FIELD--) {
-                //     if (this.--FIELD-- == null ? --FIELD-- != null : !this.--FIELD--.equals(--FIELD--)) {
-                //         --TYPE-- old_--FIELD-- = this.--FIELD--;
-                //         this.--FIELD-- = --FIELD--;
-                //         if (old_--FIELD-- != null) old_--FIELD--.--OPPOSITESETTER--(null);
-                //         if (--FIELD-- != null) --FIELD--.--OPPOSITESETTER--(this);
-                //     }
-                // }
-                    break
+                break
             case 'ManyMany':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
@@ -345,12 +395,90 @@ export class TypeScriptFamixAPIGenerator {
         }
 
 
+        // Sugar methods?
+
     }
 
     private acceptDerivedProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
-        //throw new Error('Method not implemented.');
+        // assert m.isDerived() && !m.hasOpposite();
+        assert(prop.derived && !prop.opposite)
+        // code.addImport(FameProperty.class);
+        this.addImportForClass(prop.class, sourceFile)
+
+        // String typeName = "Object";
+        // if (m.getType() != null) { // TODO should not have null type
+        //     typeName = className(m.getType());
+        //     code.addImport(this.packageName(m.getType().getPackage()), typeName);
+        // }
+
+        // TODO: not sure what to do here - not sure what this adds concretely
+
+        // if (m.isMultivalued()) {
+        //     code.addImport("java.util", "*");
+        // }
+        if (prop.multivalued) addImportForOppositeSupport(sourceFile);
+
+        // String myName = CodeGeneration.asJavaSafeName(m.getName());
+        const myName = prop.name;
+
+        // String base = "Trait." + (m.isMultivalued() ? "Many" : "One");
+        let base = "Trait." + (prop.multivalued ? "Many" : "One")
+
+        // Template getter = Template.get(base + ".Derived.Getter");
+
+        // getter.set("TYPE", typeName);
+        // getter.set("NAME", m.getName());
+        // getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+
+        const typeName = this.referenceNames.nameForRef(prop.class.ref)
+        const name = prop.name
+        const getter = prop.name
+
+        // String props = "";
+        // if (m.isDerived()) {
+        //     props += ", derived = true";
+        // }
+        // if (m.isContainer()) {
+        //     props += ", container = true";
+        // }
+
+        let props = '';
+        if (prop.derived) { props += ", derived = true" }
+        if (prop.container) { props += ", container = true" }
+
+        // getter.set("PROPS", props);
+
+        // StringBuilder stream = code.getContentStream();
+        // stream.append(getter.apply());
+        // return null;
+
+        // public --TYPE-- --GETTER--();
+        let derivedGetter = { name: `${getter}`, returnType: `${typeName}`}
+        // @FameProperty(name = "--NAME--"--PROPS--)
+        let fameProperty = `name = "${name}"${props}`
+        
+        if (prop.multivalued) {
+            // public Collection<--TYPE--> --GETTER--();
+            derivedGetter = {name: `${getter}`,
+                returnType: `Set<${typeName}>`,
+            }
+        }
+        const methodDec = classDeclaration.addGetAccessor(derivedGetter)
+        // comment before getter()?
+        methodDec.insertStatements(0, [`// @FameProperty(${fameProperty})`])
+
+        return methodDec
     }
 
+
+    private addImportForClass(pkg: Package, sourceFile: SourceFile) {
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(pkg.ref)}`,
+                namedImports: [this.referenceNames.nameForRef(pkg.ref)]
+            }
+        );
+    }
 
     private addImportForProperty(prop: Property, sourceFile: SourceFile) {
         sourceFile.addImportDeclaration(
@@ -386,6 +514,8 @@ export class TypeScriptFamixAPIGenerator {
         if (cls.properties) for (const property of cls.properties) {
             this.acceptPropertyTrait(cls, sourceFile, interfaceDeclaration, property);
         }
+
+        return interfaceDeclaration
     }
 
     convertToTypescriptType(typename: string) {
@@ -453,8 +583,21 @@ export class TypeScriptFamixAPIGenerator {
     }
 }
 
+function addImportForOppositeSupport(sourceFile: SourceFile) {
+    sourceFile.addImportDeclaration(
+        {
+            moduleSpecifier: `../../fame/internal/setWithOpposite`,
+            namedImports: [`SetWithOpposite`]
+        }
+    );
+}
+
 function firstLetterToUpperCase(name: string) {
     return name[0].toLocaleUpperCase() + name.substr(1);
+}
+
+function firstLetterToLowerCase(name: string) {
+    return name[0].toLocaleLowerCase() + name.substr(1);
 }
 
 function refIsType(ref: RefType) {
