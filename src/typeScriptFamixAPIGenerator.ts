@@ -400,10 +400,11 @@ export class TypeScriptFamixAPIGenerator {
     }
 
     private acceptDerivedProperty(prop: Property, classDeclaration: ClassDeclaration, sourceFile: SourceFile) {
+        console.log('>>>> acceptDerivedProperty')
         // assert m.isDerived() && !m.hasOpposite();
         assert(prop.derived && !prop.opposite)
         // code.addImport(FameProperty.class);
-        this.addImportForClass(prop.class, sourceFile)
+        if (this.referenceNames.nameForRef(prop.class.ref) !== classDeclaration.getName()) this.addImportForClass(prop.class, sourceFile)
 
         // String typeName = "Object";
         // if (m.getType() != null) { // TODO should not have null type
@@ -422,7 +423,7 @@ export class TypeScriptFamixAPIGenerator {
         const myName = prop.name;
 
         // String base = "Trait." + (m.isMultivalued() ? "Many" : "One");
-        let base = "Trait." + (prop.multivalued ? "Many" : "One")
+        //let base = "Trait." + (prop.multivalued ? "Many" : "One")
 
         // Template getter = Template.get(base + ".Derived.Getter");
 
@@ -430,7 +431,16 @@ export class TypeScriptFamixAPIGenerator {
         // getter.set("NAME", m.getName());
         // getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
 
-        const typeName = this.referenceNames.nameForRef(prop.class.ref)
+        let typeName;
+        // special types that are in typescript
+        if (!refIsType(prop.type.ref)) {
+            typeName = this.referenceNames.nameForRef(prop.type.ref);
+            // Only add import for property if it's not the same as the class
+            if (typeName !== classDeclaration.getName()) this.addImportForProperty(prop, sourceFile);
+        } else {
+            typeName = this.convertToTypescriptType(prop.type.ref as string);
+        }
+
         const name = prop.name
         const getter = prop.name
 
@@ -453,46 +463,56 @@ export class TypeScriptFamixAPIGenerator {
         // return null;
 
         // public --TYPE-- --GETTER--();
-        let derivedGetter = { name: `${getter}`, returnType: `${typeName}`}
+        let derivedGetter = { name: `${getter}`, returnType: `${typeName}` }
         // @FameProperty(name = "--NAME--"--PROPS--)
         let fameProperty = `name = "${name}"${props}`
-        
+
         if (prop.multivalued) {
             // public Collection<--TYPE--> --GETTER--();
-            derivedGetter = {name: `${getter}`,
+            derivedGetter = {
+                name: `${getter}`,
                 returnType: `Set<${typeName}>`,
             }
+            console.log("Trait.Many.Derived.Getter")
         }
         const methodDec = classDeclaration.addGetAccessor(derivedGetter)
-        // comment before getter()?
-        methodDec.insertStatements(0, [`// @FameProperty(${fameProperty})`])
+        methodDec.insertStatements(0, [`// @FameProperty(${fameProperty})`,
+            '// TODO: this is a derived property; implement this method manually',
+            `throw new Error('Function not implemented.')`
+        ])
 
         return methodDec
     }
 
 
     private addImportForClass(pkg: Package, sourceFile: SourceFile) {
+        const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(pkg.ref)}`
+        if (!sourceFile.getImportDeclaration(moduleSpecifier))
         sourceFile.addImportDeclaration(
             {
-                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(pkg.ref)}`,
+                moduleSpecifier: moduleSpecifier,
                 namedImports: [this.referenceNames.nameForRef(pkg.ref)]
             }
         );
     }
 
     private addImportForProperty(prop: Property, sourceFile: SourceFile) {
+        const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`
+        if (!sourceFile.getImportDeclaration(moduleSpecifier))
         sourceFile.addImportDeclaration(
             {
-                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`,
+                moduleSpecifier: moduleSpecifier,
                 namedImports: [this.referenceNames.nameForRef(prop.type.ref)]
             }
         );
     }
 
     private addImportForTrait(trait: Package, sourceFile: SourceFile) {
-        sourceFile.addImportDeclaration(
+        const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`
+        if (!sourceFile.getImportDeclaration(moduleSpecifier))
+         sourceFile.addImportDeclaration(
             {
-                moduleSpecifier: `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`,
+                moduleSpecifier: moduleSpecifier,
                 namedImports: [this.referenceNames.nameForRef(trait.ref)]
             }
         );
@@ -546,9 +566,9 @@ export class TypeScriptFamixAPIGenerator {
         //     typeName = className(m.getType());
         //     code.addImport(this.packageName(m.getType().getPackage()), typeName);
         // }
-        if (!refIsType(property.type.ref)) {
+        if (!refIsType(property.type.ref) && this.referenceNames.nameForRef(property.type.ref) !== interfaceDeclaration.getName()) 
             this.addImportForProperty(property, sourceFile)
-        }
+
         // if (m.isMultivalued()) {
         //     code.addImport("java.util", "*");
         // }
@@ -584,6 +604,7 @@ export class TypeScriptFamixAPIGenerator {
 }
 
 function addImportForOppositeSupport(sourceFile: SourceFile) {
+    if (!sourceFile.getImportDeclaration('../../fame/internal/setWithOpposite'))
     sourceFile.addImportDeclaration(
         {
             moduleSpecifier: `../../fame/internal/setWithOpposite`,
