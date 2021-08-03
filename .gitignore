@@ -1,4 +1,9 @@
 node_modules
 target
-src/famix/**
+src/famix/Famix-Traits
+src/famix/FamixReplication
+src/famix/FamixTypeScript
+src/famix/Moose
+src/famix/Moose-Query
+src/famix/Tagging
 coverage
