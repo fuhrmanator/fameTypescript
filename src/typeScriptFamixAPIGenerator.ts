@@ -1,5 +1,5 @@
 import { Class, Package, Property, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
-import { ClassDeclaration, InterfaceDeclaration, Project, Scope, SourceFile } from "ts-morph";
+import { ClassDeclaration, ImportSpecifier, InterfaceDeclaration, Project, Scope, SourceFile } from "ts-morph";
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
 
@@ -404,6 +404,8 @@ export class TypeScriptFamixAPIGenerator {
         // assert m.isDerived() && !m.hasOpposite();
         assert(prop.derived && !prop.opposite)
         // code.addImport(FameProperty.class);
+        addNamedImport(sourceFile, "FameProperty", "../../fame/annotations")
+        addNamedImport(sourceFile, "FameProperty", "../../fame/annotations")
         if (this.referenceNames.nameForRef(prop.class.ref) !== classDeclaration.getName()) this.addImportForClass(prop.class, sourceFile)
 
         // String typeName = "Object";
@@ -476,7 +478,10 @@ export class TypeScriptFamixAPIGenerator {
             console.log("Trait.Many.Derived.Getter")
         }
         const methodDec = classDeclaration.addGetAccessor(derivedGetter)
-        methodDec.addDecorator({name: 'FameProperty', arguments: [""]})
+        methodDec.addDecorator({
+            name: 'FameProperty',
+            arguments: [`{ name: "${name}", derived: ${prop.derived as boolean}, container: ${prop.container as boolean}}`]
+        })
         methodDec.insertStatements(0, [`// @FameProperty(${fameProperty})`,
             '// TODO: this is a derived property; implement this method manually',
             `throw new Error('Function not implemented.')`
@@ -489,34 +494,34 @@ export class TypeScriptFamixAPIGenerator {
     private addImportForClass(pkg: Package, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(pkg.ref)}`
         if (!sourceFile.getImportDeclaration(moduleSpecifier))
-        sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: moduleSpecifier,
-                namedImports: [this.referenceNames.nameForRef(pkg.ref)]
-            }
-        );
+            sourceFile.addImportDeclaration(
+                {
+                    moduleSpecifier: moduleSpecifier,
+                    namedImports: [this.referenceNames.nameForRef(pkg.ref)]
+                }
+            );
     }
 
     private addImportForProperty(prop: Property, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`
         if (!sourceFile.getImportDeclaration(moduleSpecifier))
-        sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: moduleSpecifier,
-                namedImports: [this.referenceNames.nameForRef(prop.type.ref)]
-            }
-        );
+            sourceFile.addImportDeclaration(
+                {
+                    moduleSpecifier: moduleSpecifier,
+                    namedImports: [this.referenceNames.nameForRef(prop.type.ref)]
+                }
+            );
     }
 
     private addImportForTrait(trait: Package, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`
         if (!sourceFile.getImportDeclaration(moduleSpecifier))
-         sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: moduleSpecifier,
-                namedImports: [this.referenceNames.nameForRef(trait.ref)]
-            }
-        );
+            sourceFile.addImportDeclaration(
+                {
+                    moduleSpecifier: moduleSpecifier,
+                    namedImports: [this.referenceNames.nameForRef(trait.ref)]
+                }
+            );
     }
 
     acceptTrait(cls: Class, sourceFile: SourceFile) {
@@ -567,7 +572,7 @@ export class TypeScriptFamixAPIGenerator {
         //     typeName = className(m.getType());
         //     code.addImport(this.packageName(m.getType().getPackage()), typeName);
         // }
-        if (!refIsType(property.type.ref) && this.referenceNames.nameForRef(property.type.ref) !== interfaceDeclaration.getName()) 
+        if (!refIsType(property.type.ref) && this.referenceNames.nameForRef(property.type.ref) !== interfaceDeclaration.getName())
             this.addImportForProperty(property, sourceFile)
 
         // if (m.isMultivalued()) {
@@ -581,16 +586,16 @@ export class TypeScriptFamixAPIGenerator {
         // getter.set("TYPE", typeName);
         // getter.set("NAME", m.getName());
         // getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
-        let typeName = refIsType(property.type.ref) ? 
-            (property.type.ref as string).toLowerCase() : 
+        let typeName = refIsType(property.type.ref) ?
+            (property.type.ref as string).toLowerCase() :
             this.referenceNames.nameForRef(property.type.ref);
         if (property.multivalued) {
-            console.log('         multivalued property'); 
-            typeName += '[]' 
+            console.log('         multivalued property');
+            typeName += '[]'
         }
         // TODO: should probably not be a get
-//        interfaceDeclaration.addMethod({ name: `get${firstLetterToUpperCase(property.name)}`, returnType: typeName })
-        interfaceDeclaration.addProperty({ name: property.name, type: typeName})
+        //        interfaceDeclaration.addMethod({ name: `get${firstLetterToUpperCase(property.name)}`, returnType: typeName })
+        interfaceDeclaration.addProperty({ name: property.name, type: typeName })
 
         // String props = "";
         // if (m.isDerived()) {
@@ -613,12 +618,20 @@ export class TypeScriptFamixAPIGenerator {
 
 function addImportForOppositeSupport(sourceFile: SourceFile) {
     if (!sourceFile.getImportDeclaration('../../fame/internal/setWithOpposite'))
-    sourceFile.addImportDeclaration(
-        {
-            moduleSpecifier: `../../fame/internal/setWithOpposite`,
-            namedImports: [`SetWithOpposite`]
-        }
-    );
+        sourceFile.addImportDeclaration(
+            {
+                moduleSpecifier: `../../fame/internal/setWithOpposite`,
+                namedImports: [`SetWithOpposite`]
+            }
+        );
+}
+
+// only add named import if it's not already there
+function addNamedImport(sourceFile: SourceFile, name: string, path: string) {
+    const dcl = sourceFile.getImportDeclaration(path)
+    if (!dcl || dcl.getNamedImports().filter((n) => n.getName() === name).length === 0) {
+        sourceFile.addImportDeclaration({ moduleSpecifier: path, namedImports: [name] })
+    }
 }
 
 function firstLetterToUpperCase(name: string) {
