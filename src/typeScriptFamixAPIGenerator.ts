@@ -399,8 +399,7 @@ export class TypeScriptFamixAPIGenerator {
         // assert m.isDerived() && !m.hasOpposite();
         assert(prop.derived && !prop.opposite)
         // code.addImport(FameProperty.class);
-        addNamedImport(sourceFile, "FameProperty", "../../fame/annotations")
-        addNamedImport(sourceFile, "FameProperty", "../../fame/annotations")
+        addImportForFameProperty(sourceFile)
         if (this.referenceNames.nameForRef(prop.class.ref) !== classDeclaration.getName()) this.addImportForClass(prop.class, sourceFile)
 
         // String typeName = "Object";
@@ -545,7 +544,7 @@ export class TypeScriptFamixAPIGenerator {
         assert(property.derived && !property.opposite)
 
         // code.addImport(FameProperty.class);
-        // TODO: add the FameProperty class to typescript (Erni didn't do it I think...)
+        addImportForFameProperty(sourceFile)
 
         // String typeName = "Object";
         // if (m.getType() != null) { // TODO should not have null type
