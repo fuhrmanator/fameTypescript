@@ -145,12 +145,7 @@ export class TypeScriptFamixAPIGenerator {
         }
 
         // MSE conversion -- probably not going to work with Traits, as properties are now traits?
-        sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: `../famixMSEExporter`,
-                namedImports: [`FamixMSEExporter`]
-            }
-        )
+        addImportForMSEExporter(sourceFile)
         classDeclaration.addMethod({
             name: 'getMSE', statements: [
                 `const mse: FamixMSEExporter = new FamixMSEExporter("${packageName}.${cls.name}", this)`,
@@ -493,35 +488,20 @@ export class TypeScriptFamixAPIGenerator {
 
     private addImportForClass(pkg: Package, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(pkg.ref)}`
-        if (!sourceFile.getImportDeclaration(moduleSpecifier))
-            sourceFile.addImportDeclaration(
-                {
-                    moduleSpecifier: moduleSpecifier,
-                    namedImports: [this.referenceNames.nameForRef(pkg.ref)]
-                }
-            );
+        const name = this.referenceNames.nameForRef(pkg.ref)
+        addNamedImport(sourceFile, name, moduleSpecifier)
     }
 
     private addImportForProperty(prop: Property, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(prop.type.ref)}`
-        if (!sourceFile.getImportDeclaration(moduleSpecifier))
-            sourceFile.addImportDeclaration(
-                {
-                    moduleSpecifier: moduleSpecifier,
-                    namedImports: [this.referenceNames.nameForRef(prop.type.ref)]
-                }
-            );
+        const name = this.referenceNames.nameForRef(prop.type.ref)
+        addNamedImport(sourceFile, name, moduleSpecifier)
     }
 
     private addImportForTrait(trait: Package, sourceFile: SourceFile) {
         const moduleSpecifier = `../${this.referenceNames.sourcePathForClassRef(trait.ref)}`
-        if (!sourceFile.getImportDeclaration(moduleSpecifier))
-            sourceFile.addImportDeclaration(
-                {
-                    moduleSpecifier: moduleSpecifier,
-                    namedImports: [this.referenceNames.nameForRef(trait.ref)]
-                }
-            );
+        const name = this.referenceNames.nameForRef(trait.ref)
+        addNamedImport(sourceFile, name, moduleSpecifier)
     }
 
     acceptTrait(cls: Class, sourceFile: SourceFile) {
@@ -617,13 +597,15 @@ export class TypeScriptFamixAPIGenerator {
 }
 
 function addImportForOppositeSupport(sourceFile: SourceFile) {
-    if (!sourceFile.getImportDeclaration('../../fame/internal/setWithOpposite'))
-        sourceFile.addImportDeclaration(
-            {
-                moduleSpecifier: `../../fame/internal/setWithOpposite`,
-                namedImports: [`SetWithOpposite`]
-            }
-        );
+    addNamedImport(sourceFile, 'SetWithOpposite', '../../fame/internal/setWithOpposite')
+}
+
+function addImportForFameProperty(sourceFile: SourceFile) {
+    addNamedImport(sourceFile, 'FameProperty', '../../fame/annotations')
+}
+
+function addImportForMSEExporter(sourceFile: SourceFile) {
+    addNamedImport(sourceFile, 'FamixMSEExporter', '../famixMSEExporter')
 }
 
 // only add named import if it's not already there
