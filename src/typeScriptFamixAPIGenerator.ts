@@ -476,6 +476,7 @@ export class TypeScriptFamixAPIGenerator {
             console.log("Trait.Many.Derived.Getter")
         }
         const methodDec = classDeclaration.addGetAccessor(derivedGetter)
+        methodDec.addDecorator({name: 'FameProperty', arguments: [""]})
         methodDec.insertStatements(0, [`// @FameProperty(${fameProperty})`,
             '// TODO: this is a derived property; implement this method manually',
             `throw new Error('Function not implemented.')`
@@ -558,9 +559,9 @@ export class TypeScriptFamixAPIGenerator {
     acceptDerivedPropertyTrait(property: Property, interfaceDeclaration: InterfaceDeclaration, sourceFile: SourceFile) {
         assert(property.derived && !property.opposite)
 
-        // this has spooky Object stuff in it, need to ask team @Lille
-
         // code.addImport(FameProperty.class);
+        // TODO: add the FameProperty class to typescript (Erni didn't do it I think...)
+
         // String typeName = "Object";
         // if (m.getType() != null) { // TODO should not have null type
         //     typeName = className(m.getType());
@@ -580,9 +581,16 @@ export class TypeScriptFamixAPIGenerator {
         // getter.set("TYPE", typeName);
         // getter.set("NAME", m.getName());
         // getter.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
-        let typeName = refIsType(property.type.ref) ? (property.type.ref as string).toLowerCase() : this.referenceNames.nameForRef(property.type.ref);
-        if (property.multivalued) { console.log('         multivalued property'); typeName += '[]' }
-        interfaceDeclaration.addMethod({ name: `get${firstLetterToUpperCase(property.name)}`, returnType: typeName })
+        let typeName = refIsType(property.type.ref) ? 
+            (property.type.ref as string).toLowerCase() : 
+            this.referenceNames.nameForRef(property.type.ref);
+        if (property.multivalued) {
+            console.log('         multivalued property'); 
+            typeName += '[]' 
+        }
+        // TODO: should probably not be a get
+//        interfaceDeclaration.addMethod({ name: `get${firstLetterToUpperCase(property.name)}`, returnType: typeName })
+        interfaceDeclaration.addProperty({ name: property.name, type: typeName})
 
         // String props = "";
         // if (m.isDerived()) {
@@ -624,4 +632,3 @@ function firstLetterToLowerCase(name: string) {
 function refIsType(ref: RefType) {
     return RefEnum[ref as RefEnum];
 }
-
