@@ -1,4 +1,4 @@
-import { Class, Package, Property, RefEnum, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
+import { Class, Package, Property, RefEnum, Superclass, TypeScriptMM } from './quicktype/TypeScriptMMInterfaces'
 import { ClassDeclaration, ImportSpecifier, InterfaceDeclaration, Project, Scope, SourceFile } from "ts-morph";
 import { FamixReferences } from './famixReferences'
 import assert from 'assert';
@@ -11,7 +11,7 @@ export class TypeScriptFamixAPIGenerator {
     referenceNames: FamixReferences;
     mm: TypeScriptMM[]
 
-    constructor(sourceRoot: string, mm: TypeScriptMM[]) {
+    constructor(sourceRoot: string, mm: TypeScriptMM[], classNamePrefix: string) {
         this.sourceRoot = sourceRoot
         this.mm = mm
         this.referenceNames = new FamixReferences(mm);
@@ -597,8 +597,97 @@ export class TypeScriptFamixAPIGenerator {
     }
 
     acceptAccessorPropertyTrait(property: Property, sourceFile: SourceFile) {
+        // code.addImport(FameProperty.class);
+        addImportForFameProperty(sourceFile)
+
+        // String typeName = "Object";
+        let typeName = "Object"
+        // if (m.getType() != null) { // TODO should not have null type
+        //     typeName = className(m.getType());
+        //     code.addImport(this.packageName(m.getType().getPackage()), typeName);
+        // }
+
+        if (property.type) {
+            typeName = this.className(property.type)
+            this.addImportForClass(property.class, sourceFile)
+        }
+
+        // if (m.isMultivalued()) {
+        //     code.addImport("java.util", "*");
+        // }
+        if (property.multivalued) addImportForOppositeSupport(sourceFile)
+
+        // String myName = CodeGeneration.asJavaSafeName(m.getName());
+        const myName = property.name
+
+
+        // String base = "Trait." + (m.isMultivalued() ? "Many" : "One");
+        // Template field = Template.get(base + ".Field");
+        // if (m.getOpposite() != null) {
+        //     base = base + (m.getOpposite().isMultivalued() ? "Many" : "One");
+        //     if (base.equals("ManyOne") || base.equals("ManyMany")) {
+        //         code.addImport(MultivalueSet.class);
+        //     }
+        // }
+        // Template getter = Template.get(base + ".Getter");
+        // Template setter = Template.get(base + ".Setter");
+
+
+        // field.set("TYPE", typeName);
+        // field.set("THISTYPE", CodeGeneration.asJavaSafeName(className(m.getOwningMetaDescription())));
+        // field.set("FIELD", myName);
+        // field.set("NAME", m.getName());
+        // field.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // field.set("SETTER", "set" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // if (m.getOpposite() != null) {
+        //     String oppositeName = m.getOpposite().getName();
+        //     field.set("OPPOSITENAME", oppositeName);
+        //     oppositeName = CodeGeneration.asJavaSafeName(oppositeName);
+        //     field.set("OPPOSITESETTER", "set" + Character.toUpperCase(oppositeName.charAt(0)) + oppositeName.substring(1));
+        //     field.set("OPPOSITEGETTER", "get" + Character.toUpperCase(oppositeName.charAt(0)) + oppositeName.substring(1));
+        // }
+        // getter.setAll(field);
+        // setter.setAll(field);
+
+        // String props = "";
+        // if (m.isDerived()) {
+        //     props += ", derived = true";
+        // }
+        // if (m.isContainer()) {
+        //     props += ", container = true";
+        // }
+        // getter.set("PROPS", props);
+
+        // StringBuilder fieldsStream = code.getFieldsContentStream();
+        // StringBuilder bodyStream = code.getContentStream();
+        // fieldsStream.append(field.apply());
+        // bodyStream.append(getter.apply());
+        // bodyStream.append(setter.apply());
+
+        // // adder for multivalued properties
+
+        // if (!m.isMultivalued())
+        //     return null;
+
+        // Template adder = Template.get("Trait.Many.Sugar");
+        // adder.set("TYPE", typeName);
+        // adder.set("FIELD", myName);
+        // adder.set("GETTER", "get" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // adder.set("ADDER", "add" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // adder.set("NUMOF", "numberOf" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // adder.set("HAS", "has" + Character.toUpperCase(myName.charAt(0)) + myName.substring(1));
+        // bodyStream.append(adder.apply());
+        // return null;        
         return; // throw new Error('Function not implemented.');
     }
+
+    className(type: Superclass): string {
+        if (this.referenceNames ) {
+
+        }
+        return ""
+    }
+    
 }
 
 function addImportForOppositeSupport(sourceFile: SourceFile) {
@@ -632,3 +721,5 @@ function firstLetterToLowerCase(name: string) {
 function refIsType(ref: RefType) {
     return RefEnum[ref as RefEnum];
 }
+
+

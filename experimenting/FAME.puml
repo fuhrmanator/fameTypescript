@@ -1,0 +1,63 @@
+@startuml
+hide empty members
+title "http://scg.unibe.ch/archive/papers/Kuhn08cFame.pdf"
+skinparam class {
+  BackgroundColor white
+  ArrowColor black
+  BorderColor darkGray
+  BackgroundColor<<External>> LightYellow
+  BorderColor<<External>> LightGray
+}
+
+'skinparam linetype multiline
+'left to right direction
+'set namespaceseparator ::
+
+abstract class "<<abstract>>\nElement" as FM3.Element {
+    name : string
+    /fullname : string
+    /owner : Element
+}
+class FM3.Property  {
+    class : Class
+    container : boolean
+    derived : boolean
+    key : boolean
+    multivalued : boolean
+    opposite : Property
+    package : Package
+    type : Class
+    /composite : boolean
+}
+class FM3.Class  {
+    abstract : boolean
+    superclass : Class
+    package : Package
+    properties : Property[]
+    /allProperties : Property[]
+    /primitive : boolean
+    /root : boolean
+}
+class FM3.Package  {
+    classes : Class[]
+    extensions : Property
+}
+
+FM3.Property "1" -- "1" FM3.Property : < opposite
+FM3.Property "properties *" -- "class 1" FM3.Class
+
+FM3.Class "1" -- "1" FM3.Class : superclass >
+
+FM3.Package "package 1" -- "classes *" FM3.Class
+FM3.Package "1 package" -- "extensions *" FM3.Property
+
+class Fame.Repository
+class Fame.MetaRepository extends Fame.Repository
+
+Fame.MetaRepository -- "*" FM3.Element : contains >
+
+FM3.Package -u-|> FM3.Element
+FM3.Class -u-|> FM3.Element
+FM3.Property -u-|> FM3.Element
+
+@enduml
