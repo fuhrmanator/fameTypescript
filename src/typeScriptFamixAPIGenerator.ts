@@ -211,10 +211,11 @@ export class TypeScriptFamixAPIGenerator {
         const fieldType = `${(prop.multivalued ? 'Set<' : '') + typeScriptType + (prop.multivalued ? '>' : '')}`
 
         const declaredProperty = classDeclaration.addProperty({
-            name: `_${prop.name}`,
-            type: `${fieldType} ${!prop.multivalued ? ' | null' : ''}`,
+            name: `_${prop.name + (!prop.multivalued ? '?' : '')}`,  // multivalued will be initialized so can't be undefined
+//            type: `${fieldType} ${!prop.multivalued ? ' | null' : ''}`,
+            type: `${fieldType}`,
             scope: Scope.Private,
-            initializer: 'null'
+//            initializer: 'null'
         });
 
         let oppositeSetter = ''
@@ -240,7 +241,7 @@ export class TypeScriptFamixAPIGenerator {
                 `new class extends SetWithOpposite<${typeScriptType}> {\n` +
                 `  constructor(private outerThis: ${className}) { super() }\n` +
                 `  clearOpposite(value: ${typeScriptType}): this {\n` +
-                (base === 'ManyMany' ? `    value.${oppositeGetter}.delete(this.outerThis)\n` : `    value.${oppositeSetter} = null\n`) +
+                (base === 'ManyMany' ? `    value.${oppositeGetter}.delete(this.outerThis)\n` : `    value.${oppositeSetter} = undefined\n`) +
                 `    return this\n` +
                 `  }\n` +
                 `  setOpposite(value: ${typeScriptType}): this {\n` +
@@ -257,7 +258,8 @@ export class TypeScriptFamixAPIGenerator {
 
         let getterMethodDefinition = {
             name: `${prop.name}`,
-            returnType: `${fieldType} | null`,
+//            returnType: `${fieldType}`,
+            returnType: ``, // inferred type
             statements: [`return this._${prop.name}`],
         }
 
@@ -266,7 +268,7 @@ export class TypeScriptFamixAPIGenerator {
             name: `${prop.name}`,
             parameters: [{
                 name: setterParamName,
-                type: `${typeScriptType} | null`
+                type: `${typeScriptType} | undefined`
             }],
             statements: [`this._${prop.name} = ${setterParamName}`],
         }
@@ -280,7 +282,8 @@ export class TypeScriptFamixAPIGenerator {
             case 'Many':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
-                    returnType: `${fieldType}`,
+//                    returnType: `${fieldType}`,
+                    returnType: ``, // infer type
                     statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Set'
@@ -296,7 +299,8 @@ export class TypeScriptFamixAPIGenerator {
             case 'ManyOne':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
-                    returnType: `${fieldType}`,
+//                    returnType: `${fieldType}`,
+                    returnType: ``, // infer type
                     statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Set'
@@ -316,10 +320,10 @@ export class TypeScriptFamixAPIGenerator {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
-                        type: `${typeScriptType} | null`
+                        type: `${typeScriptType} | undefined`
                     }],
                     statements: [
-                        `if (this._${prop.name} !== null) {`,
+                        `if (this._${prop.name} != null) {`,
                         `   if (this._${prop.name} === ${setterParamName}) return;`,
                         `   this._${prop.name}.${oppositeGetter}.delete(this)`,
                         `}`,
@@ -338,7 +342,7 @@ export class TypeScriptFamixAPIGenerator {
                     name: `${prop.name}`,
                     parameters: [{
                         name: setterParamName,
-                        type: `${typeScriptType} | null`
+                        type: `${typeScriptType} | undefined`
                     }],
                     statements: [
                         `if (this._${prop.name} == null ? ${setterParamName} !== null : !this._${prop.name} === ${setterParamName}) {`,
@@ -353,7 +357,8 @@ export class TypeScriptFamixAPIGenerator {
             case 'ManyMany':
                 getterMethodDefinition = {
                     name: `${prop.name}`,
-                    returnType: `${fieldType}`,
+//                    returnType: `${fieldType}`,
+                    returnType: ``, // infer type
                     statements: [`return this._${prop.name}`],
                 }
                 setterParamName += 'Set'
@@ -467,7 +472,8 @@ export class TypeScriptFamixAPIGenerator {
             // public Collection<--TYPE--> --GETTER--();
             derivedGetter = {
                 name: `${getter}`,
-                returnType: `Set<${typeName}>`,
+//                returnType: `Set<${typeName}>`,
+                returnType: ``, // infer type
             }
             console.log("Trait.Many.Derived.Getter")
         }
