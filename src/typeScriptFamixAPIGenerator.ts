@@ -11,7 +11,7 @@ export class TypeScriptFamixAPIGenerator {
     referenceNames: FamixReferences;
     mm: TypeScriptMM[]
 
-    constructor(sourceRoot: string, mm: TypeScriptMM[], classNamePrefix: string) {
+    constructor(sourceRoot: string, mm: TypeScriptMM[]) {
         this.sourceRoot = sourceRoot
         this.mm = mm
         this.referenceNames = new FamixReferences(mm);
